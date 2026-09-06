@@ -1,0 +1,11 @@
+spring:
+  config:
+    import: "classpath:mysql.yaml"
+
+  jpa:
+    open-in-view: false # Input Adapter 계층의 지연로딩 및 N+1 문제 방지
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
