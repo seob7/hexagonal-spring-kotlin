@@ -1,0 +1,5 @@
+hexagonal:
+  jwt:
+    # Access Token 서명 검증용 RSA 공개키 (X.509 PEM). 발급(user 모듈) 개인키와 한 쌍이어야 한다.
+    # 예: file:/absolute/path/to/.keys/public.pem
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION}

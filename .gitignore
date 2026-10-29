@@ -41,3 +41,6 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### JWT 서명 키 (로컬 생성, 절대 커밋 금지) ###
+.keys/

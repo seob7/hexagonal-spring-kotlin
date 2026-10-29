@@ -1,0 +1,31 @@
+server:
+  port: 8081 # reference(8080) 와 동시에 띄울 수 있도록 분리
+
+spring:
+  config:
+    import:
+      - "classpath:mysql.yaml"
+      - "classpath:security.yaml"
+
+  jpa:
+    open-in-view: false # Input Adapter 계층의 지연로딩 및 N+1 문제 방지
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      repositories:
+        enabled: false # Redis 는 StringRedisTemplate 로만 접근한다
+
+hexagonal:
+  jwt:
+    # Access Token 서명용 RSA 개인키 (PKCS#8 PEM). 공개키는 security.yaml 의 public-key-location.
+    # 예: file:/absolute/path/to/.keys/private.pem
+    private-key-location: ${JWT_PRIVATE_KEY_LOCATION}
+    access-token-ttl: 30m
+    refresh-token-ttl: 14d
