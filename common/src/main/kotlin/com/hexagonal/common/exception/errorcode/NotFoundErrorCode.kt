@@ -15,6 +15,7 @@ enum class NotFoundErrorCode(
 ) : BaseErrorCode {
 
     REFERENCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Reference is not found."),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "User is not found."),
     ;
 
     override fun getHttpStatus(): HttpStatus = httpStatus
