@@ -35,6 +35,8 @@ Kotlin · Spring Boot 멀티모듈에서 **헥사고날 아키텍처의 계층 �
 | JVM | Java toolchain 25 |
 | 프레임워크 | Spring Boot 4.1 · Spring Web MVC · Spring Data JPA |
 | DB | MySQL 8 (로컬은 `docker-compose.yaml`) |
+| 캐시 | Redis 7 — `user` 모듈의 Refresh Token 저장소 |
+| 인증 | Spring Security · OAuth2 Resource Server (JWT RS256 검증) — 자체 이메일 로그인, 소셜 로그인 아님 |
 | 식별자 | TSID (`io.hypersistence:hypersistence-utils`) — 애플리케이션 생성 `Long` |
 | 조회 | QueryDSL (Jakarta 지원 OpenFeign 포크) |
 | 공통 응답 | `io.github.seob7:common-api` 의 `Api<T>` / `BaseErrorCode` |
@@ -52,12 +54,24 @@ hexagonal
 │                         #   커스텀 어댑터 어노테이션, 공통 예외/핸들러, 공유 DataSource 설정
 ├── persistence-common   # 영속성 공용 (java-library, 실행 불가)
 │                         #   BaseEntity(TSID·감사·논리삭제), PageResponse
-└── reference            # 실행 가능한 Spring Boot 애플리케이션 (BootJar 활성)
-                          #   헥사고날 계층 구현의 본체
+├── security-common      # 인증 공용 (java-library, 실행 불가)
+│                         #   JWT 검증 필터 체인, AuthUser 주입, 401/403 공통 응답
+├── reference            # 실행 가능한 Spring Boot 애플리케이션 (BootJar 활성, :8080)
+│                         #   헥사고날 계층 구현의 본체 (CRUD)
+└── user                 # 실행 가능한 Spring Boot 애플리케이션 (BootJar 활성, :8081)
+                          #   회원가입·로그인·토큰 발급/재발급/폐기
 ```
 
-- `common` / `persistence-common` 은 `bootJar` 비활성 · `jar` 활성. 순수 라이브러리다.
-- `reference` 만 `bootJar` 활성. 실행 진입점은 `ReferenceApplication`.
+```text
+user            → common, persistence-common, security-common
+reference       → common, persistence-common          (/api 가 생기면 + security-common)
+security-common → common
+reference  ✗→  user        실행 모듈끼리는 절대 의존하지 않는다
+```
+
+- `common` / `persistence-common` / `security-common` 은 `bootJar` 비활성 · `jar` 활성. 순수 라이브러리다.
+- `reference`, `user` 가 `bootJar` 활성. 실행 진입점은 각각 `ReferenceApplication`, `UserApplication`.
+- 토큰은 `user` 만 **발급**(개인키)하고, `security-common` 을 쓰는 모든 모듈이 **검증**(공개키)한다. → [security-common/README.md](security-common/README.md)
 - 각 모듈·패키지에 `README.md` 를 두어 그 자리에서 규칙을 확인할 수 있다.
 
 ---
@@ -65,7 +79,7 @@ hexagonal
 ## 3. 빠른 시작
 
 ```bash
-# 1) 로컬 MySQL 기동 (기본 접속값은 common/src/main/resources/mysql.yaml 의 기본값과 일치)
+# 1) 로컬 MySQL · Redis 기동 (기본 접속값은 common/src/main/resources/mysql.yaml 의 기본값과 일치)
 docker compose up -d
 
 # 2) 애플리케이션 실행
@@ -73,6 +87,16 @@ docker compose up -d
 
 # 3) API 문서
 open http://localhost:8080/scalar
+```
+
+`user` 모듈은 JWT 서명 키가 추가로 필요하다. → [user/README.md 1. 실행](user/README.md#1-실행)
+
+```bash
+mkdir -p .keys
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out .keys/private.pem
+openssl rsa -in .keys/private.pem -pubout -out .keys/public.pem
+export JWT_PRIVATE_KEY_LOCATION=file:$PWD/.keys/private.pem JWT_PUBLIC_KEY_LOCATION=file:$PWD/.keys/public.pem
+./gradlew :user:bootRun          # http://localhost:8081/scalar
 ```
 
 ### 자주 쓰는 명령어
@@ -94,7 +118,20 @@ open http://localhost:8080/scalar
 | `PUT` | `/open-api/reference/{id}` | 수정 |
 | `DELETE` | `/open-api/reference/{id}` | 논리 삭제 |
 
+`user` (:8081)
+
+| 메서드 | 경로 | 설명 |
+| :-- | :-- | :-- |
+| `POST` | `/open-api/user` | 회원가입 |
+| `POST` | `/open-api/auth/token` | 로그인 (토큰 발급) |
+| `PUT` | `/open-api/auth/token` | 토큰 재발급 (Rotation) |
+| `DELETE` | `/api/auth/token` | 로그아웃 |
+| `GET` | `/api/user/me` | 내 정보 |
+| `PUT` | `/api/user/me/password` | 비밀번호 변경 |
+| `DELETE` | `/api/user/me` | 회원 탈퇴 |
+
 > 인증이 없는 API 는 `/open-api/...`, 인증이 필요한 API 는 `/api/...` prefix 를 쓴다.
+> `security-common` 을 의존한 모듈에서는 이 prefix 가 실제 보안 규칙이 된다. (`/open-api` 하위 외에는 전부 Access Token 필요)
 
 ---
 
@@ -288,7 +325,7 @@ ReferenceResponse  <--from(reference)-------------------------------------------
 
 ## 8. 새 도메인 추가 체크리스트
 
-`user` 도메인을 새로 만든다고 하면:
+`user` 도메인을 새로 만든다고 하면: (실제 구현 결과는 [`user` 모듈](user/README.md) — 인증·Redis 처럼 CRUD 를 넘어서는 부분까지 포함)
 
 1. `com.hexagonal.user` 아래 [5장](#5-패키지-구조)과 동일한 트리를 만든다.
 2. `domain/User.kt` — `BaseEntity` 상속, 일반 `class`, 상태 변경 메서드.
@@ -330,6 +367,14 @@ ReferenceResponse  <--from(reference)-------------------------------------------
 | `@WebInputAdapter(vararg path)` | `@RestController` + `@RequestMapping` | 인바운드 REST 어댑터. 생성자 인자로 base path |
 | `@WebOutputAdapter` | `@Component` | 아웃바운드 어댑터(외부 API 호출 등) |
 | `@PersistenceAdapter` | `@Repository` | 아웃바운드 영속성 어댑터 |
+| `@OutputAdapter` | `@Component` | 웹·영속성이 아닌 아웃바운드 어댑터 (암호화, 토큰 발급 등) |
+
+### 인증 (`security-common`) — [README](security-common/README.md)
+
+- 의존만 추가하면 `/open-api` 하위·API 문서를 제외한 모든 경로가 Access Token(JWT) 을 요구한다. 세션 없음.
+- 검증은 RS256 **공개키**로만 한다. 발급용 개인키는 `user` 모듈만 가진다.
+- 컨트롤러는 `AuthUser`(`userId`, `role`) 파라미터로 인증 사용자를 받는다. Spring Security 타입을 직접 쓰지 않는다.
+- 401 / 403 도 `Api.ERROR` 규격으로 응답한다. 401 은 `UNAUTHORIZED`(토큰 없음)와 `INVALID_TOKEN`(위조·만료)을 구분한다.
 
 ### 공통 응답 규격
 
@@ -383,4 +428,6 @@ ReferenceResponse  <--from(reference)-------------------------------------------
 
 - [`docs/code-convention.md`](docs/code-convention.md) — 코드 스타일·JPA·DTO·검증 규칙
 - [`docs/git-convention.md`](docs/git-convention.md) — 브랜치 전략·커밋 메시지 규칙
+- [`user/README.md`](user/README.md) — 회원·인증 모듈: 토큰 정책, API, 설계 결정
+- [`security-common/README.md`](security-common/README.md) — 토큰 검증 공용 모듈, 다른 모듈에 인증 붙이는 법
 - 각 패키지의 `README.md` — 그 계층의 세부 규칙

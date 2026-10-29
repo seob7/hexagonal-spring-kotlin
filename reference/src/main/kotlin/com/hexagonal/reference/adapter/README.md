@@ -22,3 +22,4 @@ HTTP ──▶│  in  ──▶ [in port]        [out port] ◀── out  ─�
 | `@WebInputAdapter(vararg path)` | `@RestController` + `@RequestMapping` | 인바운드 REST 어댑터. 생성자 인자로 base path 지정 |
 | `@WebOutputAdapter` | `@Component` | 아웃바운드 어댑터(외부 API 호출 등) |
 | `@PersistenceAdapter` | `@Repository` | 아웃바운드 영속성 어댑터 (예외 변환 포함) |
+| `@OutputAdapter` | `@Component` | 웹·영속성이 아닌 아웃바운드 어댑터 (암호화, 토큰 발급 등) |

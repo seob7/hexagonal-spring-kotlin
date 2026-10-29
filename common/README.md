@@ -4,7 +4,7 @@
 
 | 패키지 | 내용 |
 | :-- | :-- |
-| `annotation` | 어댑터 의도를 드러내는 커스텀 어노테이션 (`@WebInputAdapter`, `@WebOutputAdapter`, `@PersistenceAdapter`) |
+| `annotation` | 어댑터 의도를 드러내는 커스텀 어노테이션 (`@WebInputAdapter`, `@WebOutputAdapter`, `@PersistenceAdapter`, `@OutputAdapter`) |
 | `exception` | 공통 예외 타입 + 전역 `@RestControllerAdvice` 핸들러 → [상세 README](src/main/kotlin/com/hexagonal/common/exception/README.md) |
 | `resources/mysql.yaml` | 공유 DataSource 설정 조각. 실행 모듈이 `spring.config.import` 로 가져간다 |
 

@@ -12,10 +12,15 @@
 | `BaseErrorCode` | `io.github.seob7` (common-api) | 에러 코드 계약. `getHttpStatus()`, `getMessage()` 두 개만 정의 |
 | `NotFoundErrorCode` | `exception.errorcode` | "리소스 없음" 계열 에러 코드 enum. `BaseErrorCode` 구현 |
 | `ValidationErrorCode` | `exception.errorcode` | "요청 값 검증 실패" 계열 에러 코드 enum |
+| `UnauthorizedErrorCode` | `exception.errorcode` | "인증 실패" 계열 (401). 토큰 없음·위조·만료, 자격 증명 불일치 |
+| `ForbiddenErrorCode` | `exception.errorcode` | "권한 없음" 계열 (403) |
+| `ConflictErrorCode` | `exception.errorcode` | "상태 충돌" 계열 (409). 중복 이메일 등 |
 | `NotFoundException` | `exception` | `BaseErrorCode` 를 담는 `RuntimeException` |
 | `ValidationException` | `exception` | 비즈니스 로직에서 명시적으로 던지는 검증 실패 예외 |
+| `UnauthorizedException` · `ForbiddenException` · `ConflictException` | `exception` | 위 에러 코드 계열과 짝을 이루는 예외 |
 | `NotFoundExceptionHandler` | `exception.handler` | `@RestControllerAdvice`. `NotFoundException` → `Api.ERROR` |
 | `ValidationExceptionHandler` | `exception.handler` | `ValidationException` 과 `@Valid` 실패(`MethodArgumentNotValidException`) → `Api.ERROR` |
+| `UnauthorizedExceptionHandler` · `ForbiddenExceptionHandler` · `ConflictExceptionHandler` | `exception.handler` | 각 예외 → `Api.ERROR`. 401·403 은 Spring Security 필터에서 난 실패도 security-common 이 이 핸들러로 넘긴다 |
 
 ### 처리 흐름
 
